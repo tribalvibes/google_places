@@ -69,6 +69,7 @@ module GooglePlaces
       @address_components     = json_result_object['address_components']
       @rating                 = json_result_object['rating']
       @url                    = json_result_object['url']
+      @website                = json_result_object['website']
     end
     
     def refresh
@@ -90,7 +91,7 @@ module GooglePlaces
       @closed
     end 
     
-    ['lat', 'lng', 'vicinity', 'name', 'icon', 'types', 'id', 'formatted_phone_number', 'formatted_address', 'address_components', 'rating', 'url'].each do |local_method|
+    ['lat', 'lng', 'vicinity', 'name', 'icon', 'types', 'id', 'formatted_phone_number', 'formatted_address', 'address_components', 'rating', 'url', 'website'].each do |local_method|
       class_eval %Q&
         def #{local_method}
           if @#{local_method}.nil? and !@refreshed
@@ -100,6 +101,52 @@ module GooglePlaces
         end
       &
     end
+    
+    def has_details?
+      @address_components || @formatted_address || @formatted_phone_number
+    end
 
+    def street_number
+      parsed_address(:street_number)
+    end
+
+    def route
+      parsed_address(:route)
+    end
+
+    def address
+      [street_number, route].join(' ').strip
+    end
+
+    def city
+      parsed_address(:locality)
+    end
+    
+    def state
+      parsed_address(:administrative_area_level_1)
+    end
+    
+    def country
+      parsed_address(:country)
+    end
+
+    def postal_code
+      parsed_address(:postal_code)
+    end
+
+    def zip5
+      postal_code.split('-').first || ''
+    end
+
+    def parsed_address(field,subfield='short_name')
+      # invert the goog array into a Hash of :type => {component}
+      @parsed_address ||= Hash[*[
+        address_components.map do |c| 
+          c.delete('types').map {|t| [t.intern, c] }
+        end
+      ].flatten]
+      @parsed_address[field] ? @parsed_address[field][subfield] : ''
+    end
+    
   end
 end
